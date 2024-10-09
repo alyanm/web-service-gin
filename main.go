@@ -24,6 +24,7 @@ func main() {
 	router.GET("/albums", getAlbums)
 	router.GET("/albums/:id", getAlbumsByID)
 	router.POST("/albums", postAlbums)
+	router.PUT("/albums/:id", updateAlbumByID)
 	router.Run("localhost:8080")
 }
 
@@ -70,6 +71,33 @@ func getAlbumsByID(c *gin.Context) {
 	for _, a := range albums {
 		if a.ID == id {
 			c.IndentedJSON(http.StatusOK, a)
+			return
+		}
+	}
+	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+}
+
+/* updateAlbumByID updates an album from JSON received in the request body.
+test:
+curl http://localhost:8080/albums/2 \
+	--include \
+	--header "Content-Type: application/json" \
+	--request "PUT" \
+	--data '{"id": "2","title": "Jeru","artist": "Gerry Mulligan","price": 19.99}'
+	*/
+func updateAlbumByID(c *gin.Context) {
+	id := c.Param("id")
+
+	var updatedAlbum album
+	if err := c.BindJSON(&updatedAlbum); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid JSON provided"});
+		return
+	}
+
+	for i, a := range albums {
+		if a.ID == id {
+			albums[i] = updatedAlbum
+			c.IndentedJSON(http.StatusOK, updatedAlbum)
 			return
 		}
 	}
