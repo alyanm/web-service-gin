@@ -30,6 +30,22 @@ func InitDB(dataSourceName string) {
 	}
 }
 
+
+func InitializeTestData() {
+    albums := []Album{
+        {ID: "1", Title: "Blue Train", Artist: "John Coltrane", Price: 56.99},
+        {ID: "2", Title: "Jeru", Artist: "Gerry Mulligan", Price: 17.99},
+        {ID: "3", Title: "Sarah Vaughan and Clifford Brown", Artist: "Sarah Vaughan", Price: 39.99},
+    }
+
+    for _, album := range albums {
+        _, err := DB.Exec("INSERT INTO albums (id, title, artist, price) VALUES (?, ?, ?, ?)", album.ID, album.Title, album.Artist, album.Price)
+        if err != nil {
+            log.Printf("Error inserting album %v: %v", album, err)
+        }
+    }
+}
+
 func GetAlbums() ([]Album, error) {
 	rows, err := DB.Query("SELECT * FROM albums")
 	if err != nil {
@@ -60,7 +76,7 @@ func GetAlbumByID(id string) (Album, error) {
 }
 
 func AddAlbum(alb Album) (int64, error) {
-	res, err := DB.Exec("INSERT INTO albums (title, artist, price) VALUES (?, ?, ?)", alb.Title, alb.Artist, alb.Price)
+	res, err := DB.Exec("INSERT INTO albums (id, title, artist, price) VALUES (?, ?, ?, ?)", alb.ID, alb.Title, alb.Artist, alb.Price)
 	if err != nil {
 		return 0, err
 	}

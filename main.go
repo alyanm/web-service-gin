@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"strconv"
@@ -9,23 +10,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type album struct {
-	ID	 string `json:"id"`
-	Title	 string `json:"title"`
-	Artist	 string `json:"artist"`
-	Price	 float32 `json:"price"`
-}
-
-var albums = []album{
-	{ID: "1", Title: "Blue Train", Artist: "John Coltrane", Price: 56.99},
-	{ID: "2", Title: "Jeru", Artist: "Gerry Mulligan", Price: 17.99},
-	{ID: "3", Title: "Sarah Vaughan and Clifford Brown", Artist: "Sarah Vaughan", Price: 39.99},
-}
-
 func main() {
 
-	db.InitDB("root:chicchan@tcp(127.0.0.1:3306)/albumdb");
-	
+	db.InitDB("root:chicchan@tcp(127.0.0.1:3306)/albumdb")
+	db.InitializeTestData()
+
 	router := gin.Default()
 	router.GET("/albums", getAlbums)
 	router.GET("/albums/:id", getAlbumsByID)
@@ -55,11 +44,17 @@ func getAlbums(c *gin.Context) {
 		pageSize = 10
 	}
 
+	albums, err := db.GetAlbums()
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
 	startIndex := (page - 1) * pageSize
 	endIndex := min(startIndex + pageSize, len(albums))
 
 	if startIndex >= len(albums) {
-		c.IndentedJSON(http.StatusOK, []album{})
+		c.IndentedJSON(http.StatusOK, []db.Album{})
 		return
 	}
 
@@ -76,14 +71,20 @@ curl http://localhost:8080/albums \
 	*/
 
 func postAlbums(c *gin.Context) {
-	var newAlbum album
+	var newAlbum db.Album
 
 	// Call BindJSON to bind the received JSON to newAlbum.
 	if err := c.BindJSON(&newAlbum); err != nil {
 		return
 	}
 
-	albums = append(albums, newAlbum)
+	_, err := db.AddAlbum(newAlbum)
+
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
 	c.IndentedJSON(http.StatusCreated, newAlbum)
 }
 
@@ -94,14 +95,16 @@ curl http://localhost:8080/albums/2
 func getAlbumsByID(c *gin.Context) {
 	id := c.Param("id")
 
-	// Loop over the list of albums, looking for an album whose ID value matches the parameter. */
-	for _, a := range albums {
-		if a.ID == id {
-			c.IndentedJSON(http.StatusOK, a)
-			return
-		}
+	album, err := db.GetAlbumByID(id)
+	if err == sql.ErrNoRows {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+		return
+	} else if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
 	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+
+	c.IndentedJSON(http.StatusOK, album)
 }
 
 /* updateAlbumByID updates an album from JSON received in the request body.
@@ -115,20 +118,18 @@ curl http://localhost:8080/albums/2 \
 func updateAlbumByID(c *gin.Context) {
 	id := c.Param("id")
 
-	var updatedAlbum album
+	var updatedAlbum db.Album
 	if err := c.BindJSON(&updatedAlbum); err != nil {
 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid JSON provided"});
 		return
 	}
 
-	for i, a := range albums {
-		if a.ID == id {
-			albums[i] = updatedAlbum
-			c.IndentedJSON(http.StatusOK, updatedAlbum)
-			return
-		}
+	if _, err := db.UpdateAlbumByID(id, updatedAlbum); err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
 	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+
+	c.IndentedJSON(http.StatusOK, updatedAlbum)
 }
 
 /** deleteAlbumByID removes an album from the list.
@@ -141,12 +142,10 @@ curl http://localhost:8080/albums/2 \
 func deleteAlbumByID(c *gin.Context) {
 	id := c.Param("id")
 
-	for i, a := range albums {
-		if a.ID == id {
-			albums = append(albums[:i], albums[i+1:]...)
-			c.IndentedJSON(http.StatusOK, gin.H{"message": "album deleted"})
-			return
-		}
+	if _, err := db.DeleteAlbumByID(id); err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
 	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+
+	c.IndentedJSON(http.StatusOK, gin.H{"message": "album deleted"})
 }
