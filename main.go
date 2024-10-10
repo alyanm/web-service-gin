@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"github.com/alyanm/web-service-gin/db"
+	"github.com/gin-gonic/gin"
 )
 
 type album struct {
@@ -23,6 +23,9 @@ var albums = []album{
 }
 
 func main() {
+
+	db.InitDB("root:chicchan@tcp(127.0.0.1:3306)/albumdb");
+	
 	router := gin.Default()
 	router.GET("/albums", getAlbums)
 	router.GET("/albums/:id", getAlbumsByID)
