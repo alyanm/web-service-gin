@@ -1,9 +1,12 @@
 package main
 
 import (
+	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/alyanm/web-service-gin/db"
 )
 
 type album struct {
@@ -25,18 +28,39 @@ func main() {
 	router.GET("/albums/:id", getAlbumsByID)
 	router.POST("/albums", postAlbums)
 	router.PUT("/albums/:id", updateAlbumByID)
+	router.DELETE("/albums/:id", deleteAlbumByID)
 	router.Run("localhost:8080")
 }
 
 /* getAlbums responds with the list of all albums as JSON.
+* take page and pageSize as parameters to support pagination.
 test:
-curl http://localhost:8080/albums \
+curl http://localhost:8080/albums\?page=1\&pageSize=2 \
     --header "Content-Type: application/json" \
     --request "GET"
 	*/
 
 func getAlbums(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, albums)
+	log.Println("getAlbums")
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
+	if err != nil || pageSize < 1 {
+		pageSize = 10
+	}
+
+	startIndex := (page - 1) * pageSize
+	endIndex := min(startIndex + pageSize, len(albums))
+
+	if startIndex >= len(albums) {
+		c.IndentedJSON(http.StatusOK, []album{})
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, albums[startIndex:endIndex])
 }
 
 /* postAlbums adds an album from JSON received in the request body.
@@ -98,6 +122,26 @@ func updateAlbumByID(c *gin.Context) {
 		if a.ID == id {
 			albums[i] = updatedAlbum
 			c.IndentedJSON(http.StatusOK, updatedAlbum)
+			return
+		}
+	}
+	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+}
+
+/** deleteAlbumByID removes an album from the list.
+test:
+curl http://localhost:8080/albums/2 \
+	--include \
+	--header "Content-Type: application/json" \
+	--request "DELETE"
+	*/
+func deleteAlbumByID(c *gin.Context) {
+	id := c.Param("id")
+
+	for i, a := range albums {
+		if a.ID == id {
+			albums = append(albums[:i], albums[i+1:]...)
+			c.IndentedJSON(http.StatusOK, gin.H{"message": "album deleted"})
 			return
 		}
 	}
