@@ -143,6 +143,7 @@ func deleteAlbumByID(c *gin.Context) {
 	id := c.Param("id")
 
 	if _, err := db.DeleteAlbumByID(id); err != nil {
+		log.Println(err);
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
