@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/alyanm/web-service-gin/db"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,6 +17,16 @@ func main() {
 	db.InitializeTestData()
 
 	router := gin.Default()
+
+    // Configure CORS middleware
+    router.Use(cors.New(cors.Config{
+        AllowOrigins:     []string{"http://localhost:4200"}, // Change this to your frontend's URL
+        AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+        AllowHeaders:     []string{"Origin", "Content-Type"},
+        ExposeHeaders:    []string{"Content-Length"},
+        AllowCredentials: true,
+    }))
+	
 	router.GET("/albums", getAlbums)
 	router.GET("/albums/:id", getAlbumsByID)
 	router.POST("/albums", postAlbums)
